@@ -2,8 +2,7 @@ class Application
   def call(env)
     request = Rack::Request.new(env)
     if request.path == "/time" && request.get?
-
-      [200, headers, [time(request.params["format"])]]
+      time_response(get_parameters(request))
     else
       not_found
     end
@@ -15,8 +14,22 @@ class Application
     [404, headers, ['Not found']]
   end
 
-  def serve_request
-    Router.new(request).route!
+  def time_response(parameters)
+    invalid_parameters = invalid_params(parameters)
+    if invalid_parameters.empty?
+      [200, headers, [time(parameters)]]
+    else
+      [400, headers, ["Unknown time format [#{invalid_parameters.join(', ')}]"]]
+    end
+  end
+
+  def get_parameters(request)
+    params = request.params["format"]
+    if params
+      params.split(',')
+    else
+      []
+    end
   end
 
   def headers
@@ -25,7 +38,7 @@ class Application
 
   def time(format_param)
     if format_param
-      format = format_param.split(',').map { |f| time_format_hash[f] }.join('-')
+      format = format_param.map { |f| time_format_hash[f] }.join('-')
     else
       format = '%Y-%m-%d-%H-%M-%S' 
     end
@@ -42,5 +55,15 @@ class Application
       'minute' => '%M',
       'second' => '%S'
     }
+  end
+
+  def invalid_params(parameters)
+    valid_parameters = ['year', 'month', 'day', 'hour', 'minute', 'second']
+    invalid_parameters = []
+    parameters.each do |p|
+      invalid_parameters.push(p) unless valid_parameters.include?(p)
+    end
+
+    invalid_parameters
   end
 end
