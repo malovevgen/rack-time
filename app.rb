@@ -2,7 +2,8 @@ class Application
   def call(env)
     request = Rack::Request.new(env)
     if request.path == "/time" && request.get?
-      time_response(get_parameters(request))
+      response = get_response(request.params)
+      [response.status, headers, response.body]
     else
       not_found
     end
@@ -14,56 +15,21 @@ class Application
     [404, headers, ['Not found']]
   end
 
-  def time_response(parameters)
-    invalid_parameters = invalid_params(parameters)
-    if invalid_parameters.empty?
-      [200, headers, [time(parameters)]]
+  def get_response(params)
+    response = Response.new
+    formatter = FormatTime.new(params)
+    if formatter.valid?
+      response.status = 200
+      response.body = [formatter.time]
     else
-      [400, headers, ["Unknown time format [#{invalid_parameters.join(', ')}]"]]
+      response.status = 400
+      response.body = ["Unknown time format [#{formatter.invalid_parameters.join(', ')}]"]
     end
-  end
 
-  def get_parameters(request)
-    params = request.params["format"]
-    if params
-      params.split(',')
-    else
-      []
-    end
+    response
   end
 
   def headers
     { "Content-Type" => "text/plain" }
-  end
-
-  def time(format_param)
-    if format_param
-      format = format_param.map { |f| time_format_hash[f] }.join('-')
-    else
-      format = '%Y-%m-%d-%H-%M-%S' 
-    end
-    puts format
-    Time.now.strftime(format)
-  end
-
-  def time_format_hash
-    {
-      'year'   => '%Y',
-      'month'  => '%m',
-      'day'    => '%d',
-      'hour'   => '%H',
-      'minute' => '%M',
-      'second' => '%S'
-    }
-  end
-
-  def invalid_params(parameters)
-    valid_parameters = ['year', 'month', 'day', 'hour', 'minute', 'second']
-    invalid_parameters = []
-    parameters.each do |p|
-      invalid_parameters.push(p) unless valid_parameters.include?(p)
-    end
-
-    invalid_parameters
   end
 end
